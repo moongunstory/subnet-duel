@@ -12,11 +12,11 @@ const QUESTION_WEIGHTS = {
 };
 
 const DIFFICULTY = {
-  easy: { label: "사이더 24이상", min: 24, max: 30, factor: 1 },
-  medium: { label: "사이더 24미만 16이상", min: 16, max: 23, factor: 1.3 },
-  hard: { label: "사이더 16미만", min: 8, max: 15, factor: 1.8 },
-  random: { label: "전체 랜덤 (사이더 8~30)", min: 8, max: 30, factor: 1.5 },
-  custom: { label: "직접 범위 지정", min: 8, max: 30, factor: 1.2 }
+  easy:   { label: "사이더 24이상",        min: 24, max: 30, factor: 1.0 },
+  medium: { label: "사이더 24미만 16이상", min: 16, max: 23, factor: 3.0 },
+  hard:   { label: "사이더 16미만",        min: 8,  max: 15, factor: 6.0 },
+  random: { label: "전체 랜덤 (사이더 8~30)", min: 8, max: 30, factor: 1.0 },
+  custom: { label: "직접 범위 지정",       min: 8,  max: 30, factor: 1.0 }
 };
 
 function ipToInt(ip) {

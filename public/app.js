@@ -975,7 +975,7 @@ document.querySelector("#startCustomBtn").addEventListener("click", async () => 
 // ── 랭킹 시스템 (Leaderboard) ──────────────────────────────────
 
 let currentLbTab = "duel"; // "duel" | "solo"
-let currentSoloDiff = "all"; // "all" | "random" | "easy" | "medium" | "hard" | "custom"
+let currentSoloDiff = "all"; // "all" | "easy" | "medium" | "hard"
 let lbFetching = false; // 중복 요청 방지 플래그
 
 function formatLeaderboardTime(elapsedMs) {
@@ -1049,6 +1049,7 @@ async function renderLeaderboard() {
           <tr>
             <th class="rank-col">순위</th>
             <th>콜사인 (닉네임)</th>
+            <th>난이도</th>
             <th>정확도</th>
             <th>클리어 시간</th>
             <th>획득 점수</th>
@@ -1074,10 +1075,12 @@ async function renderLeaderboard() {
         const topClass = rank <= 3 ? `top-${rank}` : "";
         const isMe = item.nickname?.toLowerCase() === state.nickname?.toLowerCase();
         const tr = document.createElement("tr");
+        const diffLabel = { easy: "🟢 쉬움", medium: "🟡 보통", hard: "🔴 어려움" }[item.difficulty] || item.difficulty || "-";
 
         tr.innerHTML = `
           <td class="rank-col"><span class="rank-badge ${topClass}">${rank}</span></td>
-          <td class="${isMe ? "nickname-highlight" : ""}">${escapeHtml(item.nickname || "")} ${isMe ? " (나)" : ""}</td>
+          <td class="${isMe ? "nickname-highlight" : ""}">${escapeHtml(item.nickname || "")}${isMe ? " <span style='opacity:0.7;font-size:0.85em'>(나)</span>" : ""}</td>
+          <td>${diffLabel}</td>
           <td class="accuracy-val">🎯 ${item.accuracy}%</td>
           <td class="time-val">⏱️ ${formatLeaderboardTime(item.elapsedMs)}</td>
           <td>${item.score}점</td>

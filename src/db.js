@@ -80,13 +80,16 @@ async function saveSoloRecord(record) {
   const zscore = calculateSoloZScore(accuracy, elapsedMs, score);
   const now = Date.now();
 
+  // unified 리더보드에서 같은 사람이 난이도별로 다른 항목으로 등록되도록 복합 키 사용
+  const allMember = `${difficulty}:${nickname}`;
+
   if (isConfigured) {
     const key = `leaderboard:solo:${difficulty}`;
     const allKey = `leaderboard:solo:all`;
     const hashKey = `record:solo:${difficulty}:${nickname}`;
-    const allHashKey = `record:solo:all:${nickname}`;
+    const allHashKey = `record:solo:all:${allMember}`;
 
-    // Check existing score
+    // Check existing score (per-difficulty 기준)
     const currentScoreStr = await redisCommand(["ZSCORE", key, nickname]);
     const isNewUser = (currentScoreStr === null || currentScoreStr === undefined);
     const currentScore = isNewUser ? -1 : Number(currentScoreStr);
@@ -94,7 +97,7 @@ async function saveSoloRecord(record) {
     if (isNewUser || zscore > currentScore) {
       await redisPipeline([
         ["ZADD", key, zscore, nickname],
-        ["ZADD", allKey, zscore, nickname],
+        ["ZADD", allKey, zscore, allMember],
         ["HSET", hashKey,
           "nickname", nickname,
           "difficulty", difficulty,
@@ -134,7 +137,7 @@ async function saveSoloRecord(record) {
 
     if (isNewUser || zscore > existingZScore) {
       zset.set(nickname, zscore);
-      allZset.set(nickname, zscore);
+      allZset.set(allMember, zscore); // difficulty:nickname 키로 등록
       const recordObj = {
         nickname,
         difficulty,
@@ -146,7 +149,7 @@ async function saveSoloRecord(record) {
         timestamp: now
       };
       memoryStore.soloRecords.set(`${difficulty}:${nickname}`, recordObj);
-      memoryStore.soloRecords.set(`all:${nickname}`, recordObj);
+      memoryStore.soloRecords.set(`all:${allMember}`, recordObj);
       return true;
     }
     return false;
@@ -159,13 +162,24 @@ async function getSoloLeaderboard(difficulty = "all", limit = 50) {
     const members = await redisCommand(["ZREVRANGE", key, 0, limit - 1]);
     if (!members || members.length === 0) return [];
 
-    const pipelineCmds = members.map((nick) => ["HGETALL", `record:solo:${difficulty}:${nick}`]);
+    // "all" 탭: 멤버 키가 "difficulty:nickname" 형식
+    // 개별 난이도 탑: 멤버 키가 "nickname" 형식
+    const pipelineCmds = members.map((member) => [
+      "HGETALL",
+      difficulty === "all"
+        ? `record:solo:all:${member}`
+        : `record:solo:${difficulty}:${member}`
+    ]);
     const results = await redisPipeline(pipelineCmds);
 
     return (results || []).map((rawHash, i) => {
-      const nick = members[i];
+      const member = members[i];
+      const colonIdx = member.indexOf(":");
+      const fallbackDiff = difficulty === "all" && colonIdx >= 0 ? member.slice(0, colonIdx) : difficulty;
+      const fallbackNick = difficulty === "all" && colonIdx >= 0 ? member.slice(colonIdx + 1) : member;
+
       if (!rawHash || (Array.isArray(rawHash) && rawHash.length === 0) || (typeof rawHash === "object" && Object.keys(rawHash).length === 0)) {
-        return { nickname: nick, accuracy: 0, elapsedMs: 0, score: 0 };
+        return { nickname: fallbackNick, difficulty: fallbackDiff, accuracy: 0, elapsedMs: 0, score: 0 };
       }
       const obj = {};
       if (Array.isArray(rawHash)) {
@@ -176,8 +190,8 @@ async function getSoloLeaderboard(difficulty = "all", limit = 50) {
         Object.assign(obj, rawHash);
       }
       return {
-        nickname: obj.nickname || nick,
-        difficulty: obj.difficulty || difficulty,
+        nickname: obj.nickname || fallbackNick,
+        difficulty: obj.difficulty || fallbackDiff,
         accuracy: Number(obj.accuracy || 0),
         elapsedMs: Number(obj.elapsedMs || 0),
         score: Number(obj.score || 0),
@@ -195,8 +209,14 @@ async function getSoloLeaderboard(difficulty = "all", limit = 50) {
       .sort((a, b) => b[1] - a[1])
       .slice(0, limit);
 
-    return sorted.map(([nick]) => {
-      return memoryStore.soloRecords.get(`${difficulty}:${nick}`) || { nickname: nick };
+    return sorted.map(([member]) => {
+      if (difficulty === "all") {
+        return memoryStore.soloRecords.get(`all:${member}`) || {
+          nickname: member.slice(member.indexOf(":") + 1),
+          difficulty: member.slice(0, member.indexOf(":"))
+        };
+      }
+      return memoryStore.soloRecords.get(`${difficulty}:${member}`) || { nickname: member };
     });
   }
 }

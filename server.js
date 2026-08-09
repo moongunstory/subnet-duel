@@ -2,7 +2,7 @@ const fs = require("node:fs");
 const http = require("node:http");
 const path = require("node:path");
 const { URL } = require("node:url");
-const { checkAnswer, createChallenge, scoreQuestion } = require("./src/subnet");
+const { checkAnswer, createChallenge, scoreQuestion, difficultyForCidr } = require("./src/subnet");
 const db = require("./src/db");
 
 const PORT = Number(process.env.PORT || 3000);
@@ -325,7 +325,16 @@ async function finishPractice(user, session) {
 
   const totalTime = session.submissions.reduce((sum, item) => sum + item.elapsedMs, 0);
   const accuracy = session.submissions.length ? Math.round((session.correct / session.submissions.length) * 100) : 0;
-  const mode = session.challenge.mode || "easy";
+
+  // random/custom 모드는 실제 CIDR 기반으로 easy/medium/hard 버킷에 분류
+  const rawMode = session.challenge.mode || "easy";
+  const cidr = session.challenge.info?.cidr;
+  let mode;
+  if ((rawMode === "random" || rawMode === "custom") && cidr !== undefined) {
+    mode = cidr >= 24 ? "easy" : cidr >= 16 ? "medium" : "hard";
+  } else {
+    mode = rawMode;
+  }
 
   console.log(`[Solo Record] ${user.nickname} | mode=${mode} | score=${session.score} | accuracy=${accuracy}% | time=${totalTime}ms`);
 
