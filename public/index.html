@@ -78,31 +78,69 @@
         </section>
 
         <section id="lobbyPanel" class="lobby-panel hidden">
-          <div class="match-head">
-            <div>
-              <p class="eyebrow">Ready room</p>
-              <h2 id="helloName">출격 준비 완료</h2>
+          <div class="lobby-header-row">
+            <div class="match-head">
+              <div>
+                <p class="eyebrow">Ready room</p>
+                <h2 id="helloName">출격 준비 완료</h2>
+              </div>
+              <div class="status-pill" id="statusPill">온라인</div>
             </div>
-            <div class="status-pill" id="statusPill">온라인</div>
+
+            <nav class="main-nav-tabs" aria-label="메인 탭 선택">
+              <button id="navTabModes" class="main-nav-tab active" type="button">
+                <span>🎮</span> 게임 모드
+              </button>
+              <button id="navTabRanking" class="main-nav-tab" type="button">
+                <span>🏆</span> 실시간 랭킹
+              </button>
+            </nav>
           </div>
 
-          <div class="mode-grid">
-            <button id="matchButton" class="primary-button mode-button" type="button">
-              <span>경쟁 매칭</span>
-              <strong>랜덤 CIDR로 바로 대결</strong>
-            </button>
-            <button id="practiceButton" class="secondary-button mode-button" type="button">
-              <span>솔로 연습</span>
-              <strong>혼자 10문제 풀기</strong>
-            </button>
-            <button id="leaderboardButton" class="leaderboard-button mode-button" type="button">
-              <span>🏆 명예의 전당</span>
-              <strong>실시간 랭킹 보드 보기</strong>
-            </button>
+          <div id="lobbyModesContent" class="tab-content-panel">
+            <div class="mode-grid">
+              <button id="matchButton" class="primary-button mode-button" type="button">
+                <span>경쟁 매칭</span>
+                <strong>랜덤 CIDR로 바로 대결</strong>
+              </button>
+              <button id="practiceButton" class="secondary-button mode-button" type="button">
+                <span>솔로 연습</span>
+                <strong>혼자 10문제 풀기</strong>
+              </button>
+            </div>
+
+            <div class="lobby-note">
+              경쟁전은 매칭 전에 CIDR을 고르지 않고 같은 문제 세트를 랜덤으로 받습니다. 선택 범위가 달라도 점수 배율과 체크 규칙은 공정하게 적용됩니다.
+            </div>
           </div>
 
-          <div class="lobby-note">
-            경쟁전은 매칭 전에 CIDR을 고르지 않고 같은 문제 세트를 랜덤으로 받습니다. 선택 범위가 달라도 점수 배율과 체크 규칙은 공정하게 적용됩니다.
+          <div id="lobbyRankingContent" class="tab-content-panel hidden">
+            <div class="leaderboard-container">
+              <div class="leaderboard-tabs">
+                <button id="tabDuel" class="lb-tab active" type="button">⚔️ 1v1 경쟁전</button>
+                <button id="tabSolo" class="lb-tab" type="button">⏱️ 솔로 타임어택</button>
+              </div>
+
+              <div id="soloFilterPanel" class="solo-filter-panel hidden">
+                <button class="solo-diff-btn active" data-diff="random">🎲 전체 랜덤</button>
+                <button class="solo-diff-btn" data-diff="easy">🟢 쉬움 (/24~30)</button>
+                <button class="solo-diff-btn" data-diff="medium">🟡 보통 (/16~23)</button>
+                <button class="solo-diff-btn" data-diff="hard">🔴 어려움 (/8~15)</button>
+              </div>
+
+              <div class="leaderboard-table-wrapper">
+                <table class="leaderboard-table">
+                  <thead id="lbThead">
+                    <!-- Dynamically generated -->
+                  </thead>
+                  <tbody id="lbTbody">
+                    <!-- Dynamically generated -->
+                  </tbody>
+                </table>
+                <div id="lbLoading" class="lb-empty hidden">데이터 불러오는 중...</div>
+                <div id="lbEmpty" class="lb-empty hidden">아직 등록된 랭킹 기록이 없습니다.</div>
+              </div>
+            </div>
           </div>
         </section>
 
@@ -248,40 +286,7 @@
       </div>
     </section>
 
-    <!-- Leaderboard Modal -->
-    <section id="leaderboardModal" class="modal hidden">
-      <div class="modal-content leaderboard-modal-content">
-        <div class="modal-header">
-          <h2>🏆 명예의 전당 (Leaderboard)</h2>
-          <button id="closeLeaderboardBtn" class="close-btn" type="button" aria-label="닫기">✕</button>
-        </div>
-        
-        <div class="leaderboard-tabs">
-          <button id="tabDuel" class="lb-tab active" type="button">⚔️ 1v1 경쟁전</button>
-          <button id="tabSolo" class="lb-tab" type="button">⏱️ 솔로 타임어택</button>
-        </div>
 
-        <div id="soloFilterPanel" class="solo-filter-panel hidden">
-          <button class="solo-diff-btn active" data-diff="random">🎲 전체 랜덤</button>
-          <button class="solo-diff-btn" data-diff="easy">🟢 쉬움 (/24~30)</button>
-          <button class="solo-diff-btn" data-diff="medium">🟡 보통 (/16~23)</button>
-          <button class="solo-diff-btn" data-diff="hard">🔴 어려움 (/8~15)</button>
-        </div>
-
-        <div class="leaderboard-table-wrapper">
-          <table class="leaderboard-table">
-            <thead id="lbThead">
-              <!-- Dynamically generated -->
-            </thead>
-            <tbody id="lbTbody">
-              <!-- Dynamically generated -->
-            </tbody>
-          </table>
-          <div id="lbLoading" class="lb-empty hidden">데이터 불러오는 중...</div>
-          <div id="lbEmpty" class="lb-empty hidden">아직 등록된 랭킹 기록이 없습니다.</div>
-        </div>
-      </div>
-    </section>
 
     <div id="effectsLayer" class="effects-layer"></div>
 
