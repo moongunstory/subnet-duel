@@ -73,7 +73,17 @@ const els = {
   rematchModal: $("#rematchModal"),
   rematchPromptText: $("#rematchPromptText"),
   acceptRematchBtn: $("#acceptRematchBtn"),
-  declineRematchBtn: $("#declineRematchBtn")
+  declineRematchBtn: $("#declineRematchBtn"),
+  leaderboardButton: $("#leaderboardButton"),
+  leaderboardModal: $("#leaderboardModal"),
+  closeLeaderboardBtn: $("#closeLeaderboardBtn"),
+  tabDuel: $("#tabDuel"),
+  tabSolo: $("#tabSolo"),
+  soloFilterPanel: $("#soloFilterPanel"),
+  lbThead: $("#lbThead"),
+  lbTbody: $("#lbTbody"),
+  lbLoading: $("#lbLoading"),
+  lbEmpty: $("#lbEmpty")
 };
 
 els.nickname.value = state.nickname;
@@ -878,4 +888,152 @@ document.querySelector("#startCustomBtn").addEventListener("click", async () => 
     document.querySelector("#customRangePanel").classList.remove("hidden");
     alert(`연습 시작 실패: ${error.message}`);
   }
+});
+
+// ── 랭킹 시스템 (Leaderboard) ──────────────────────────────────
+
+let currentLbTab = "duel"; // "duel" | "solo"
+let currentSoloDiff = "random"; // "random" | "easy" | "medium" | "hard"
+
+function formatLeaderboardTime(elapsedMs) {
+  if (!elapsedMs || elapsedMs <= 0) return "-";
+  const seconds = (elapsedMs / 1000).toFixed(2);
+  return `${seconds}초`;
+}
+
+async function renderLeaderboard() {
+  els.lbLoading.classList.remove("hidden");
+  els.lbEmpty.classList.add("hidden");
+  els.lbTbody.innerHTML = "";
+
+  try {
+    if (currentLbTab === "duel") {
+      els.soloFilterPanel.classList.add("hidden");
+      els.lbThead.innerHTML = `
+        <tr>
+          <th class="rank-col">순위</th>
+          <th>콜사인 (닉네임)</th>
+          <th>ELO 레이팅</th>
+          <th>전적 (승/무/패)</th>
+          <th>승률</th>
+        </tr>
+      `;
+
+      const res = await fetch("/api/leaderboard/duel");
+      const data = await res.json();
+      const list = data.list || [];
+      els.lbLoading.classList.add("hidden");
+
+      if (list.length === 0) {
+        els.lbEmpty.textContent = "아직 등록된 경쟁전 전적이 없습니다.";
+        els.lbEmpty.classList.remove("hidden");
+        return;
+      }
+
+      list.forEach((item, index) => {
+        const rank = index + 1;
+        const topClass = rank <= 3 ? `top-${rank}` : "";
+        const isMe = item.nickname === state.nickname;
+        const tr = document.createElement("tr");
+
+        tr.innerHTML = `
+          <td class="rank-col"><span class="rank-badge ${topClass}">${rank}</span></td>
+          <td class="${isMe ? "nickname-highlight" : ""}">${item.nickname} ${isMe ? " (나)" : ""}</td>
+          <td class="elo-val">⚡ ${item.elo} LP</td>
+          <td>${item.wins}승 ${item.draws > 0 ? item.draws + "무 " : ""}${item.losses}패</td>
+          <td>${item.winRate}%</td>
+        `;
+        els.lbTbody.appendChild(tr);
+      });
+
+    } else {
+      els.soloFilterPanel.classList.remove("hidden");
+      els.lbThead.innerHTML = `
+        <tr>
+          <th class="rank-col">순위</th>
+          <th>콜사인 (닉네임)</th>
+          <th>정확도</th>
+          <th>클리어 시간</th>
+          <th>획득 점수</th>
+        </tr>
+      `;
+
+      const res = await fetch(`/api/leaderboard/solo?difficulty=${currentSoloDiff}`);
+      const data = await res.json();
+      const list = data.list || [];
+      els.lbLoading.classList.add("hidden");
+
+      if (list.length === 0) {
+        els.lbEmpty.textContent = "아직 등록된 타임어택 기록이 없습니다.";
+        els.lbEmpty.classList.remove("hidden");
+        return;
+      }
+
+      list.forEach((item, index) => {
+        const rank = index + 1;
+        const topClass = rank <= 3 ? `top-${rank}` : "";
+        const isMe = item.nickname === state.nickname;
+        const tr = document.createElement("tr");
+
+        tr.innerHTML = `
+          <td class="rank-col"><span class="rank-badge ${topClass}">${rank}</span></td>
+          <td class="${isMe ? "nickname-highlight" : ""}">${item.nickname} ${isMe ? " (나)" : ""}</td>
+          <td class="accuracy-val">🎯 ${item.accuracy}%</td>
+          <td class="time-val">⏱️ ${formatLeaderboardTime(item.elapsedMs)}</td>
+          <td>${item.score}점</td>
+        `;
+        els.lbTbody.appendChild(tr);
+      });
+    }
+  } catch (err) {
+    console.error("[Leaderboard Fetch Error]", err);
+    els.lbLoading.classList.add("hidden");
+    els.lbEmpty.textContent = "랭킹 데이터를 불러오는 중 오류가 발생했습니다.";
+    els.lbEmpty.classList.remove("hidden");
+  }
+}
+
+if (els.leaderboardButton) {
+  els.leaderboardButton.addEventListener("click", () => {
+    playSound("button");
+    els.leaderboardModal.classList.remove("hidden");
+    renderLeaderboard();
+  });
+}
+
+if (els.closeLeaderboardBtn) {
+  els.closeLeaderboardBtn.addEventListener("click", () => {
+    playSound("button");
+    els.leaderboardModal.classList.add("hidden");
+  });
+}
+
+if (els.tabDuel) {
+  els.tabDuel.addEventListener("click", () => {
+    playSound("button");
+    currentLbTab = "duel";
+    els.tabDuel.classList.add("active");
+    els.tabSolo.classList.remove("active");
+    renderLeaderboard();
+  });
+}
+
+if (els.tabSolo) {
+  els.tabSolo.addEventListener("click", () => {
+    playSound("button");
+    currentLbTab = "solo";
+    els.tabSolo.classList.add("active");
+    els.tabDuel.classList.remove("active");
+    renderLeaderboard();
+  });
+}
+
+document.querySelectorAll(".solo-diff-btn").forEach((btn) => {
+  btn.addEventListener("click", (e) => {
+    playSound("button");
+    document.querySelectorAll(".solo-diff-btn").forEach((b) => b.classList.remove("active"));
+    e.currentTarget.classList.add("active");
+    currentSoloDiff = e.currentTarget.dataset.diff;
+    renderLeaderboard();
+  });
 });

@@ -3,6 +3,7 @@ const http = require("node:http");
 const path = require("node:path");
 const { URL } = require("node:url");
 const { checkAnswer, createChallenge, scoreQuestion } = require("./src/subnet");
+const db = require("./src/db");
 
 const PORT = Number(process.env.PORT || 3000);
 const PUBLIC_DIR = path.join(__dirname, "public");
@@ -255,7 +256,7 @@ function tryMatch(user) {
   return opponent.matchId;
 }
 
-function finishMatchIfReady(match) {
+async function finishMatchIfReady(match) {
   const questionCount = match.challenge.questions.length;
   const finished = match.players.every((id) => match.playerState[id].submissions.length >= questionCount);
   if (!finished) return;
@@ -277,12 +278,29 @@ function finishMatchIfReady(match) {
       averageMs: answered ? Math.round(totalTime / answered) : 0
     };
   });
+  const isDraw = playerResults[0].score === playerResults[1].score &&
+                 playerResults[0].accuracy === playerResults[1].accuracy &&
+                 playerResults[0].averageMs === playerResults[1].averageMs;
+
   const winner = [...playerResults].sort((left, right) => {
     if (right.score !== left.score) return right.score - left.score;
     if (right.accuracy !== left.accuracy) return right.accuracy - left.accuracy;
     return left.averageMs - right.averageMs;
   })[0];
-  match.result = { players: playerResults, winnerId: winner.id };
+
+  match.result = { players: playerResults, winnerId: isDraw ? null : winner.id };
+
+  if (a && b) {
+    try {
+      const eloUpdate = await db.updateDuelResult(a.nickname, b.nickname, isDraw, winner.nickname);
+      if (eloUpdate) {
+        match.result.eloUpdate = eloUpdate;
+      }
+    } catch (err) {
+      console.error("[Match ELO Update Error]", err);
+    }
+  }
+
   for (const playerId of match.players) {
     const player = clients.get(playerId);
     if (player) {
@@ -293,7 +311,7 @@ function finishMatchIfReady(match) {
   }
 }
 
-function finishPractice(user, session) {
+async function finishPractice(user, session) {
   if (session.currentIndex < session.challenge.questions.length) return;
   session.finishedAt = Date.now();
   user.status = "online";
@@ -301,6 +319,25 @@ function finishPractice(user, session) {
   user.score = session.score;
   user.correct = session.correct;
   user.totalAnswered = session.submissions.length;
+
+  const totalTime = session.submissions.reduce((sum, item) => sum + item.elapsedMs, 0);
+  const accuracy = session.submissions.length ? Math.round((session.correct / session.submissions.length) * 100) : 0;
+  const mode = session.challenge.mode || "easy";
+
+  try {
+    const newBest = await db.saveSoloRecord({
+      nickname: user.nickname,
+      difficulty: mode,
+      accuracy,
+      elapsedMs: totalTime,
+      score: session.score,
+      correct: session.correct,
+      total: session.submissions.length
+    });
+    session.newRecord = newBest;
+  } catch (err) {
+    console.error("[Solo Record Save Error]", err);
+  }
 }
 
 function handleStatic(req, res, url) {
@@ -343,6 +380,25 @@ async function handleApi(req, res, url) {
       streams.delete(clientId);
     });
     return;
+  }
+
+  // GET API Endpoints for Leaderboard & Stats
+  if (req.method === "GET") {
+    if (url.pathname === "/api/leaderboard/solo") {
+      const difficulty = url.searchParams.get("difficulty") || "random";
+      const list = await db.getSoloLeaderboard(difficulty);
+      return sendJson(res, 200, { difficulty, list });
+    }
+    if (url.pathname === "/api/leaderboard/duel") {
+      const list = await db.getDuelLeaderboard();
+      return sendJson(res, 200, { list });
+    }
+    if (url.pathname === "/api/user/stats") {
+      const nickname = url.searchParams.get("nickname") || "";
+      const stats = await db.getUserDuelStats(nickname);
+      return sendJson(res, 200, { stats });
+    }
+    return handleStatic(req, res, url);
   }
 
   if (req.method !== "POST") {
@@ -603,7 +659,7 @@ async function handleApi(req, res, url) {
       session.score += score;
       session.correct += correct ? 1 : 0;
       user.progress = Math.round((session.currentIndex / session.challenge.questions.length) * 100);
-      finishPractice(user, session);
+      await finishPractice(user, session);
       broadcastLobby();
       return sendJson(res, 200, { accepted: true, match: snapshotPracticeFor(user.id, session) });
     }
@@ -663,7 +719,7 @@ async function handleApi(req, res, url) {
       if (state.currentIndex >= match.challenge.questions.length) {
         state.finishedAt = Date.now();
       }
-      finishMatchIfReady(match);
+      await finishMatchIfReady(match);
       broadcastMatch(match);
       return sendJson(res, 200, { accepted: true });
     }

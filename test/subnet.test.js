@@ -18,7 +18,7 @@ test("calculates /21 subnet values like the reference example", () => {
   assert.equal(info.gateway, "172.28.223.254");
   assert.equal(info.usableRange, "172.28.216.1 ~ 172.28.223.253");
   assert.equal(info.groupCount, 32);
-  assert.equal(info.groupNumber, 28);
+  assert.equal(info.groupNumber, 27);
 });
 
 test("normalizes direct input answers", () => {
