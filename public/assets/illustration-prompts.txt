@@ -1,0 +1,73 @@
+Subnet Duel image generation prompts for ComfyUI
+===============================================
+
+Art direction
+-------------
+Concept: arcade subnetting battle, falling IP blocks, cyber classroom arena, fast but readable.
+Mood: competitive, playful, polished, not too dark, not horror, not military.
+Palette: near-black interface base with neon green, cyan, amber, coral accents.
+Style: high-quality game key art, semi-realistic illustration with clean graphic shapes, sharp UI-like geometry.
+Avoid: text in image, logos, cluttered cable mess, overly blue/purple palette, beige fantasy look.
+
+1. Main hero key art
+--------------------
+Prompt:
+Arcade game key visual for a web game called Subnet Duel, two students or young network engineers facing each other across a glowing digital arena, IP address blocks and CIDR tiles falling like puzzle blocks, subnet masks and network routes represented as abstract glowing panels, energetic competitive mood, clean readable composition, neon green cyan amber coral accents, dark tech arena background, high-quality semi-realistic game illustration, sharp lighting, polished UI game poster, no readable text, no logo
+
+Recommended output:
+public/assets/subnet-duel-hero.webp
+Aspect ratio: 16:9 or 21:9
+
+2. Lobby background panel
+-------------------------
+Prompt:
+Stylized cyber arcade lobby for a networking puzzle game, floating player cards, glowing grid floor, small IP packet tiles moving through lanes, friendly competitive esports atmosphere, dark interface background with green cyan amber coral accents, clean composition with empty central space for UI overlay, high-quality game environment illustration, no readable text
+
+Recommended output:
+public/assets/lobby-arena-bg.webp
+Aspect ratio: 16:9
+
+3. Player avatar set
+--------------------
+Prompt:
+Set of four small game avatars for a subnetting battle game, young network operators, expressive but simple, cyber arcade headset, colorful accent lights, clean silhouette, transparent background, cohesive style, high-quality character icon sheet, no text, no logo
+
+Recommended output:
+public/assets/avatar-sheet.webp
+Aspect ratio: 1:1
+
+4. Correct answer burst
+-----------------------
+Prompt:
+Transparent background game VFX sprite, correct answer success burst, green and amber digital particles, small subnet block fragments clearing like puzzle line clear, crisp arcade effect, high contrast, no text
+
+Recommended output:
+public/assets/vfx-correct.webp
+Aspect ratio: 1:1, transparent if possible
+
+5. Wrong answer glitch
+----------------------
+Prompt:
+Transparent background game VFX sprite, wrong answer glitch burst, coral red warning fragments, digital static and broken grid pieces, crisp arcade effect, high contrast, no text
+
+Recommended output:
+public/assets/vfx-wrong.webp
+Aspect ratio: 1:1, transparent if possible
+
+6. Falling subnet block tiles
+-----------------------------
+Prompt:
+Game asset sheet of falling puzzle blocks inspired by networking and subnetting, square tiles with abstract IP dots, mask stripes, gateway arrow symbols, neon green cyan amber coral outlines, dark interior, clean vector-like painted style, transparent background, no readable text
+
+Recommended output:
+public/assets/subnet-block-sheet.webp
+Aspect ratio: 1:1, transparent if possible
+
+7. Chat sticker mini icons
+--------------------------
+Prompt:
+Small sticker icon sheet for a friendly competitive network puzzle game chat, icons for ready, nice, fast, rematch, brain, spark, clean arcade UI style, neon green cyan amber coral accents, transparent background, no readable text
+
+Recommended output:
+public/assets/chat-sticker-sheet.webp
+Aspect ratio: 1:1, transparent if possible

@@ -1,0 +1,14 @@
+{
+  "name": "subnet-duel",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Real-time 1v1 subnetting duel MVP with no external runtime dependencies.",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

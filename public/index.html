@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Subnet Duel</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar" aria-label="접속 정보">
+        <div class="brand">
+          <div class="brand-mark">SD</div>
+          <div>
+            <strong>Subnet Duel</strong>
+            <span>네트워크 계산 배틀</span>
+          </div>
+        </div>
+
+        <section class="panel compact">
+          <div class="panel-title">
+            <span>현재 접속</span>
+            <strong id="onlineCount">0</strong>
+          </div>
+          <div id="userList" class="user-list"></div>
+        </section>
+
+        <section class="panel compact sound-panel">
+          <label class="sound-toggle">
+            <input id="soundToggle" type="checkbox" checked>
+            <span>효과음</span>
+          </label>
+        </section>
+
+        <section class="panel compact chat-panel" aria-label="전체 채팅">
+          <div class="panel-title">
+            <span>전체 채팅</span>
+            <strong>LIVE</strong>
+          </div>
+          <div id="chatMessages" class="chat-messages"></div>
+          <form id="chatForm" class="chat-form">
+            <input id="chatInput" maxlength="120" autocomplete="off" placeholder="로비에 메시지 보내기" disabled>
+            <button type="submit" disabled>전송</button>
+          </form>
+        </section>
+      </aside>
+
+      <main class="stage">
+        <section id="entryPanel" class="entry-panel">
+          <div class="entry-copy">
+            <p class="eyebrow">10-question speed run</p>
+            <h1>Subnet Duel</h1>
+            <p>주어진 IP/CIDR을 보고 마스크, 범위, 게이트웨이를 빠르게 계산하는 서브넷 연습장입니다.</p>
+            <div class="hero-stats" aria-label="게임 특징">
+              <span>1v1 매칭</span>
+              <span>솔로 연습</span>
+              <span>실시간 채팅</span>
+            </div>
+          </div>
+          <div class="hero-visual" aria-hidden="true">
+            <div class="falling-block b1">/24</div>
+            <div class="falling-block b2">255</div>
+            <div class="falling-block b3">ID</div>
+            <div class="falling-block b4">GW</div>
+            <div class="terminal-card">
+              <span>ARENA LINK</span>
+              <strong>172.28.216.107/21</strong>
+              <em>LOCK TARGET - CALCULATE</em>
+            </div>
+          </div>
+          <form id="joinForm" class="join-form">
+            <label for="nickname">콜사인</label>
+            <div class="join-row">
+              <input id="nickname" name="nickname" maxlength="16" autocomplete="nickname" placeholder="예: MoonSubnet" required>
+              <button type="submit">입장</button>
+            </div>
+          </form>
+        </section>
+
+        <section id="lobbyPanel" class="lobby-panel hidden">
+          <div class="match-head">
+            <div>
+              <p class="eyebrow">Ready room</p>
+              <h2 id="helloName">출격 준비 완료</h2>
+            </div>
+            <div class="status-pill" id="statusPill">온라인</div>
+          </div>
+
+          <div class="mode-grid">
+            <button id="matchButton" class="primary-button mode-button" type="button">
+              <span>경쟁 매칭</span>
+              <strong>랜덤 CIDR로 바로 대결</strong>
+            </button>
+            <button id="practiceButton" class="secondary-button mode-button" type="button">
+              <span>솔로 연습</span>
+              <strong>혼자 10문제 풀기</strong>
+            </button>
+          </div>
+
+          <div class="lobby-note">
+            경쟁전은 매칭 전에 CIDR을 고르지 않고 같은 문제 세트를 랜덤으로 받습니다. 선택 범위가 달라도 점수 배율과 체크 규칙은 공정하게 적용됩니다.
+          </div>
+        </section>
+
+        <section id="gamePanel" class="game-panel hidden">
+          <div class="arena-top">
+            <div>
+              <p class="eyebrow" id="matchMode">Live Match</p>
+              <h2 id="matchTitle">대기 중</h2>
+            </div>
+            <div class="timer" id="questionTimer">00.0s</div>
+          </div>
+
+          <div class="arena">
+            <div class="player-lane self">
+              <div class="lane-head">
+                <strong id="myName">나</strong>
+                <span id="myScore">0점</span>
+              </div>
+              <div class="progress-track"><div id="myProgress" class="progress-fill"></div></div>
+              <div id="myBoard" class="mini-board"></div>
+            </div>
+
+            <div class="question-console">
+              <div class="question-meta">
+                <span id="questionNumber">Q1 / 10</span>
+                <strong id="questionPoints">0점</strong>
+              </div>
+              <div class="reference-row">
+                <div id="maskReference" class="mask-reference hidden">
+                  <span>서브넷 마스크</span>
+                  <strong id="maskValue">-</strong>
+                </div>
+                <div id="totalHostsReference" class="mask-reference hidden">
+                  <span>전체 주소 수</span>
+                  <strong id="totalHostsValue">-</strong>
+                </div>
+                <div id="rangeReference" class="mask-reference hidden">
+                  <span>전체 주소 범위</span>
+                  <strong id="rangeRefValue">-</strong>
+                </div>
+              </div>
+              <div class="question-stem-row">
+                <p id="questionStem" class="question-stem"></p>
+                <button id="copyIpBtn" class="copy-btn" type="button" title="IP/CIDR 복사">📋 복사</button>
+              </div>
+              <h3 id="questionPrompt"></h3>
+              <form id="answerForm" class="answer-form">
+                <input id="answerInput" autocomplete="off" placeholder="정답 직접 입력" required>
+                <div id="rangeAnswerGroup" class="range-answer-group hidden">
+                  <input id="rangeStartInput" inputmode="decimal" autocomplete="off" maxlength="15" placeholder="시작 IP" aria-label="시작 IP">
+                  <span>~</span>
+                  <input id="rangeEndInput" inputmode="decimal" autocomplete="off" maxlength="15" placeholder="끝 IP" aria-label="끝 IP">
+                </div>
+                <button type="submit">제출</button>
+              </form>
+              <p id="questionHint" class="hint"></p>
+              <div id="feedback" class="feedback"></div>
+            </div>
+
+            <div class="player-lane opponent">
+              <div class="lane-head">
+                <strong id="opponentName">상대</strong>
+                <span id="opponentScore">0점</span>
+              </div>
+              <div class="progress-track"><div id="opponentProgress" class="progress-fill"></div></div>
+              <div id="opponentBoard" class="mini-board"></div>
+              <div class="blur-note">상대 답안은 경기 중 블라인드 처리됩니다.</div>
+            </div>
+          </div>
+        </section>
+
+        <section id="resultPanel" class="result-panel hidden">
+          <p class="eyebrow">Result</p>
+          <h2 id="resultTitle">경기 종료</h2>
+          <div id="resultStats" class="result-stats"></div>
+          <div id="resultReview" class="result-review"></div>
+          <p id="rematchStatusText" class="rematch-status-text"></p>
+          <div class="result-actions">
+            <button id="rematchButton" class="secondary-button rematch-btn" type="button">한판 더 하기 ⚔️</button>
+            <button id="againButton" class="primary-button" type="button">로비로 돌아가기</button>
+          </div>
+        </section>
+      </main>
+    </div>
+    
+    <section id="difficultyModal" class="modal hidden">
+      <div class="modal-content">
+        <h2 id="difficultyModalTitle">난이도 선택</h2>
+        <p id="difficultyModalDesc">경기에 사용할 문제 난이도를 선택해 주세요.</p>
+        <div class="difficulty-options">
+          <button class="difficulty-btn" data-mode="easy">
+            <strong>Easy</strong>
+            <span>사이더 24이상</span>
+          </button>
+          <button class="difficulty-btn" data-mode="medium">
+            <strong>Medium</strong>
+            <span>사이더 24미만 16이상</span>
+          </button>
+          <button class="difficulty-btn" data-mode="hard">
+            <strong>Hard</strong>
+            <span>사이더 16미만</span>
+          </button>
+          <button class="difficulty-btn" data-mode="random">
+            <strong>🎲 전체 랜덤</strong>
+            <span>사이더 전체 범위 (8~30)</span>
+          </button>
+          <button class="difficulty-btn solo-only" data-mode="custom">
+            <strong>🎯 범위 직접 지정</strong>
+            <span>원하는 사이더 범위만 연습</span>
+          </button>
+        </div>
+        <div id="customRangePanel" class="custom-range-panel hidden">
+          <p class="range-label">연습할 사이더 범위를 선택하세요</p>
+          <div class="range-inputs">
+            <div class="range-field">
+              <label for="cidrMinInput">최소 사이더</label>
+              <input id="cidrMinInput" type="number" min="1" max="30" value="27">
+            </div>
+            <span class="range-sep">~</span>
+            <div class="range-field">
+              <label for="cidrMaxInput">최대 사이더</label>
+              <input id="cidrMaxInput" type="number" min="1" max="30" value="30">
+            </div>
+          </div>
+          <div id="customRangePreview" class="range-preview">사이더 /27 ~ /30</div>
+          <button id="startCustomBtn" class="primary-button custom-start-btn" type="button">이 범위로 시작</button>
+        </div>
+        <div id="rouletteContainer" class="roulette-container hidden">
+          <p>서로 난이도가 다릅니다. 랜덤 선택 중...</p>
+          <div id="rouletteResult" class="roulette-result"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="rematchModal" class="modal hidden">
+      <div class="modal-content rematch-modal-content">
+        <h2>⚔️ 한판 더 하기 요청!</h2>
+        <p id="rematchPromptText">상대방이 재대결을 요청했습니다.</p>
+        <div class="rematch-modal-actions">
+          <button id="acceptRematchBtn" class="primary-button" type="button">수락</button>
+          <button id="declineRematchBtn" class="secondary-button" type="button">거절</button>
+        </div>
+      </div>
+    </section>
+
+    
+    <div id="effectsLayer" class="effects-layer"></div>
+
+    <script src="/app.js"></script>
+  </body>
+</html>
