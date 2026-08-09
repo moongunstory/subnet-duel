@@ -73,6 +73,7 @@ const els = {
   rematchModal: $("#rematchModal"),
   rematchPromptText: $("#rematchPromptText"),
   acceptRematchBtn: $("#acceptRematchBtn"),
+  declineRematchBtn: $("#declineRematchBtn"),
   navTabModes: $("#navTabModes"),
   navTabRanking: $("#navTabRanking"),
   lobbyModesContent: $("#lobbyModesContent"),
@@ -812,31 +813,69 @@ for (const input of [els.rangeStartInput, els.rangeEndInput]) {
   input.addEventListener("input", sanitizeIpInput);
 }
 
-els.copyIpBtn.addEventListener("click", () => {
-  const text = els.questionStem.textContent;
-  // IP만 추출 (CIDR 제외, 예: "192.168.1.0")
+async function copyTextToClipboard(text) {
+  if (!text) return false;
+  if (navigator.clipboard && window.isSecureContext) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch (e) {
+      console.warn("[Clipboard API failed, using fallback]", e);
+    }
+  }
+  try {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.style.position = "fixed";
+    ta.style.top = "0";
+    ta.style.left = "-9999px";
+    ta.style.opacity = "0";
+    ta.style.pointerEvents = "none";
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    ta.setSelectionRange(0, 99999);
+    const success = document.execCommand("copy");
+    document.body.removeChild(ta);
+    return success;
+  } catch (err) {
+    console.error("[Copy Error]", err);
+    return false;
+  }
+}
+
+let isCopying = false;
+async function handleCopyIp() {
+  if (isCopying) return;
+  const btn = $("#copyIpBtn") || els.copyIpBtn;
+  const questionStem = $("#questionStem") || els.questionStem;
+  if (!questionStem) return;
+
+  const text = questionStem.textContent.trim();
+  if (!text) return;
+
   const match = text.match(/(\d{1,3}(?:\.\d{1,3}){3})/);
   const toCopy = match ? match[1] : text;
-  navigator.clipboard.writeText(toCopy).then(() => {
-    const original = els.copyIpBtn.textContent;
-    els.copyIpBtn.textContent = "✅ 복사됨";
-    els.copyIpBtn.classList.add("copied");
+
+  isCopying = true;
+  const success = await copyTextToClipboard(toCopy);
+  if (success && btn) {
+    const originalText = "📋 복사";
+    btn.textContent = "✅ 복사됨";
+    btn.classList.add("copied");
     setTimeout(() => {
-      els.copyIpBtn.textContent = original;
-      els.copyIpBtn.classList.remove("copied");
+      btn.textContent = originalText;
+      btn.classList.remove("copied");
+      isCopying = false;
     }, 1500);
-  }).catch(() => {
-    // fallback
-    const ta = document.createElement("textarea");
-    ta.value = toCopy;
-    document.body.appendChild(ta);
-    ta.select();
-    document.execCommand("copy");
-    document.body.removeChild(ta);
-    els.copyIpBtn.textContent = "✅ 복사됨";
-    setTimeout(() => { els.copyIpBtn.textContent = "📋 복사"; }, 1500);
-  });
-});
+  } else {
+    isCopying = false;
+  }
+}
+
+if (els.copyIpBtn) {
+  els.copyIpBtn.addEventListener("click", handleCopyIp);
+}
 
 if (state.nickname) {
   join().catch(() => {
@@ -948,7 +987,7 @@ async function renderLeaderboard() {
 
         tr.innerHTML = `
           <td class="rank-col"><span class="rank-badge ${topClass}">${rank}</span></td>
-          <td class="${isMe ? "nickname-highlight" : ""}">${item.nickname} ${isMe ? " (나)" : ""}</td>
+          <td class="${isMe ? "nickname-highlight" : ""}">${escapeHtml(item.nickname || "")} ${isMe ? " (나)" : ""}</td>
           <td class="elo-val">⚡ ${item.elo} LP</td>
           <td>${item.wins}승 ${item.draws > 0 ? item.draws + "무 " : ""}${item.losses}패</td>
           <td>${item.winRate}%</td>
@@ -991,7 +1030,7 @@ async function renderLeaderboard() {
 
         tr.innerHTML = `
           <td class="rank-col"><span class="rank-badge ${topClass}">${rank}</span></td>
-          <td class="${isMe ? "nickname-highlight" : ""}">${item.nickname} ${isMe ? " (나)" : ""}</td>
+          <td class="${isMe ? "nickname-highlight" : ""}">${escapeHtml(item.nickname || "")} ${isMe ? " (나)" : ""}</td>
           <td class="accuracy-val">🎯 ${item.accuracy}%</td>
           <td class="time-val">⏱️ ${formatLeaderboardTime(item.elapsedMs)}</td>
           <td>${item.score}점</td>
@@ -1009,7 +1048,7 @@ async function renderLeaderboard() {
   }
 }
 
-function switchLobbyTab(tabName) {
+window.switchLobbyTab = function switchLobbyTab(tabName) {
   const navTabModes = $("#navTabModes");
   const navTabRanking = $("#navTabRanking");
   const lobbyModesContent = $("#lobbyModesContent");
@@ -1027,7 +1066,7 @@ function switchLobbyTab(tabName) {
     if (lobbyModesContent) lobbyModesContent.classList.add("hidden");
     renderLeaderboard();
   }
-}
+};
 
 // Click Delegation for Top Main Navigation Tabs & Leaderboard Tabs
 document.addEventListener("click", (e) => {
@@ -1039,10 +1078,10 @@ document.addEventListener("click", (e) => {
 
   if (modesBtn) {
     playSound("button");
-    switchLobbyTab("modes");
+    window.switchLobbyTab("modes");
   } else if (rankingBtn) {
     playSound("button");
-    switchLobbyTab("ranking");
+    window.switchLobbyTab("ranking");
   } else if (tabDuelBtn) {
     playSound("button");
     currentLbTab = "duel";
