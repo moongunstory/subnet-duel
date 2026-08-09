@@ -902,31 +902,41 @@ function formatLeaderboardTime(elapsedMs) {
 }
 
 async function renderLeaderboard() {
-  els.lbLoading.classList.remove("hidden");
-  els.lbEmpty.classList.add("hidden");
-  els.lbTbody.innerHTML = "";
+  const lbLoading = $("#lbLoading") || els.lbLoading;
+  const lbEmpty = $("#lbEmpty") || els.lbEmpty;
+  const lbTbody = $("#lbTbody") || els.lbTbody;
+  const lbThead = $("#lbThead") || els.lbThead;
+  const soloFilterPanel = $("#soloFilterPanel") || els.soloFilterPanel;
+
+  if (lbLoading) lbLoading.classList.remove("hidden");
+  if (lbEmpty) lbEmpty.classList.add("hidden");
+  if (lbTbody) lbTbody.innerHTML = "";
 
   try {
     if (currentLbTab === "duel") {
-      els.soloFilterPanel.classList.add("hidden");
-      els.lbThead.innerHTML = `
-        <tr>
-          <th class="rank-col">순위</th>
-          <th>콜사인 (닉네임)</th>
-          <th>ELO 레이팅</th>
-          <th>전적 (승/무/패)</th>
-          <th>승률</th>
-        </tr>
-      `;
+      if (soloFilterPanel) soloFilterPanel.classList.add("hidden");
+      if (lbThead) {
+        lbThead.innerHTML = `
+          <tr>
+            <th class="rank-col">순위</th>
+            <th>콜사인 (닉네임)</th>
+            <th>ELO 레이팅</th>
+            <th>전적 (승/무/패)</th>
+            <th>승률</th>
+          </tr>
+        `;
+      }
 
       const res = await fetch("/api/leaderboard/duel");
       const data = await res.json();
       const list = data.list || [];
-      els.lbLoading.classList.add("hidden");
+      if (lbLoading) lbLoading.classList.add("hidden");
 
       if (list.length === 0) {
-        els.lbEmpty.textContent = "아직 등록된 경쟁전 전적이 없습니다.";
-        els.lbEmpty.classList.remove("hidden");
+        if (lbEmpty) {
+          lbEmpty.textContent = "아직 등록된 경쟁전 전적이 없습니다.";
+          lbEmpty.classList.remove("hidden");
+        }
         return;
       }
 
@@ -943,29 +953,33 @@ async function renderLeaderboard() {
           <td>${item.wins}승 ${item.draws > 0 ? item.draws + "무 " : ""}${item.losses}패</td>
           <td>${item.winRate}%</td>
         `;
-        els.lbTbody.appendChild(tr);
+        if (lbTbody) lbTbody.appendChild(tr);
       });
 
     } else {
-      els.soloFilterPanel.classList.remove("hidden");
-      els.lbThead.innerHTML = `
-        <tr>
-          <th class="rank-col">순위</th>
-          <th>콜사인 (닉네임)</th>
-          <th>정확도</th>
-          <th>클리어 시간</th>
-          <th>획득 점수</th>
-        </tr>
-      `;
+      if (soloFilterPanel) soloFilterPanel.classList.remove("hidden");
+      if (lbThead) {
+        lbThead.innerHTML = `
+          <tr>
+            <th class="rank-col">순위</th>
+            <th>콜사인 (닉네임)</th>
+            <th>정확도</th>
+            <th>클리어 시간</th>
+            <th>획득 점수</th>
+          </tr>
+        `;
+      }
 
       const res = await fetch(`/api/leaderboard/solo?difficulty=${currentSoloDiff}`);
       const data = await res.json();
       const list = data.list || [];
-      els.lbLoading.classList.add("hidden");
+      if (lbLoading) lbLoading.classList.add("hidden");
 
       if (list.length === 0) {
-        els.lbEmpty.textContent = "아직 등록된 타임어택 기록이 없습니다.";
-        els.lbEmpty.classList.remove("hidden");
+        if (lbEmpty) {
+          lbEmpty.textContent = "아직 등록된 타임어택 기록이 없습니다.";
+          lbEmpty.classList.remove("hidden");
+        }
         return;
       }
 
@@ -982,72 +996,72 @@ async function renderLeaderboard() {
           <td class="time-val">⏱️ ${formatLeaderboardTime(item.elapsedMs)}</td>
           <td>${item.score}점</td>
         `;
-        els.lbTbody.appendChild(tr);
+        if (lbTbody) lbTbody.appendChild(tr);
       });
     }
   } catch (err) {
     console.error("[Leaderboard Fetch Error]", err);
-    els.lbLoading.classList.add("hidden");
-    els.lbEmpty.textContent = "랭킹 데이터를 불러오는 중 오류가 발생했습니다.";
-    els.lbEmpty.classList.remove("hidden");
+    if (lbLoading) lbLoading.classList.add("hidden");
+    if (lbEmpty) {
+      lbEmpty.textContent = "랭킹 데이터를 불러오는 중 오류가 발생했습니다.";
+      lbEmpty.classList.remove("hidden");
+    }
   }
 }
 
 function switchLobbyTab(tabName) {
+  const navTabModes = $("#navTabModes");
+  const navTabRanking = $("#navTabRanking");
+  const lobbyModesContent = $("#lobbyModesContent");
+  const lobbyRankingContent = $("#lobbyRankingContent");
+
   if (tabName === "modes") {
-    if (els.navTabModes) els.navTabModes.classList.add("active");
-    if (els.navTabRanking) els.navTabRanking.classList.remove("active");
-    if (els.lobbyModesContent) els.lobbyModesContent.classList.remove("hidden");
-    if (els.lobbyRankingContent) els.lobbyRankingContent.classList.add("hidden");
+    if (navTabModes) navTabModes.classList.add("active");
+    if (navTabRanking) navTabRanking.classList.remove("active");
+    if (lobbyModesContent) lobbyModesContent.classList.remove("hidden");
+    if (lobbyRankingContent) lobbyRankingContent.classList.add("hidden");
   } else if (tabName === "ranking") {
-    if (els.navTabRanking) els.navTabRanking.classList.add("active");
-    if (els.navTabModes) els.navTabModes.classList.remove("active");
-    if (els.lobbyRankingContent) els.lobbyRankingContent.classList.remove("hidden");
-    if (els.lobbyModesContent) els.lobbyModesContent.classList.add("hidden");
+    if (navTabRanking) navTabRanking.classList.add("active");
+    if (navTabModes) navTabModes.classList.remove("active");
+    if (lobbyRankingContent) lobbyRankingContent.classList.remove("hidden");
+    if (lobbyModesContent) lobbyModesContent.classList.add("hidden");
     renderLeaderboard();
   }
 }
 
-if (els.navTabModes) {
-  els.navTabModes.addEventListener("click", () => {
+// Click Delegation for Top Main Navigation Tabs & Leaderboard Tabs
+document.addEventListener("click", (e) => {
+  const modesBtn = e.target.closest("#navTabModes");
+  const rankingBtn = e.target.closest("#navTabRanking");
+  const tabDuelBtn = e.target.closest("#tabDuel");
+  const tabSoloBtn = e.target.closest("#tabSolo");
+  const soloDiffBtn = e.target.closest(".solo-diff-btn");
+
+  if (modesBtn) {
     playSound("button");
     switchLobbyTab("modes");
-  });
-}
-
-if (els.navTabRanking) {
-  els.navTabRanking.addEventListener("click", () => {
+  } else if (rankingBtn) {
     playSound("button");
     switchLobbyTab("ranking");
-  });
-}
-
-if (els.tabDuel) {
-  els.tabDuel.addEventListener("click", () => {
+  } else if (tabDuelBtn) {
     playSound("button");
     currentLbTab = "duel";
-    els.tabDuel.classList.add("active");
-    els.tabSolo.classList.remove("active");
+    const tabSolo = $("#tabSolo");
+    tabDuelBtn.classList.add("active");
+    if (tabSolo) tabSolo.classList.remove("active");
     renderLeaderboard();
-  });
-}
-
-if (els.tabSolo) {
-  els.tabSolo.addEventListener("click", () => {
+  } else if (tabSoloBtn) {
     playSound("button");
     currentLbTab = "solo";
-    els.tabSolo.classList.add("active");
-    els.tabDuel.classList.remove("active");
+    const tabDuel = $("#tabDuel");
+    tabSoloBtn.classList.add("active");
+    if (tabDuel) tabDuel.classList.remove("active");
     renderLeaderboard();
-  });
-}
-
-document.querySelectorAll(".solo-diff-btn").forEach((btn) => {
-  btn.addEventListener("click", (e) => {
+  } else if (soloDiffBtn) {
     playSound("button");
     document.querySelectorAll(".solo-diff-btn").forEach((b) => b.classList.remove("active"));
-    e.currentTarget.classList.add("active");
-    currentSoloDiff = e.currentTarget.dataset.diff;
+    soloDiffBtn.classList.add("active");
+    currentSoloDiff = soloDiffBtn.dataset.diff;
     renderLeaderboard();
-  });
+  }
 });
