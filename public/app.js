@@ -176,7 +176,7 @@ function renderLobby(payload) {
       <div class="user-meta">
         <span>${formatScore(user.score)}</span>
         <span>${formatAccuracy(user.accuracy)}</span>
-        <span>${user.progress}% 진행</span>
+        ${user.progress !== null ? `<span>${user.progress}% 진행</span>` : ""}
       </div>
     </div>
   `).join("");
@@ -572,10 +572,15 @@ function playSound(name) {
 async function join() {
   const nickname = els.nickname.value.trim();
   if (!nickname) return;
+  try {
+    await api("/api/join", { clientId: state.clientId, nickname });
+  } catch (error) {
+    alert(error.message || "입장에 실패했습니다.");
+    return;
+  }
   state.nickname = nickname;
   localStorage.setItem("subnetDuelNickname", nickname);
   sessionStorage.setItem("subnetDuelNickname", nickname);
-  await api("/api/join", { clientId: state.clientId, nickname });
   els.helloName.textContent = `${nickname}, 출격 준비 완료`;
   els.chatInput.disabled = false;
   els.chatForm.querySelector("button").disabled = false;

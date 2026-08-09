@@ -60,12 +60,13 @@ function readBody(req) {
 }
 
 function publicUser(user, options = {}) {
-  const hideLiveResults = options.hideLiveResults ?? (user.status === "playing" || user.status === "practice" || user.status === "selecting_difficulty");
+  const isActive = user.status === "playing" || user.status === "practice" || user.status === "selecting_difficulty" || user.status === "queue";
+  const hideLiveResults = options.hideLiveResults ?? isActive;
   return {
     id: user.id,
     nickname: user.nickname,
     status: user.status,
-    progress: user.progress || 0,
+    progress: isActive ? (user.progress || 0) : null,  // 게임 중에만 progress 표시
     accuracy: hideLiveResults ? null : (user.totalAnswered ? Math.round((user.correct / user.totalAnswered) * 100) : 0),
     score: hideLiveResults ? null : (user.score || 0)
   };
@@ -417,13 +418,18 @@ async function handleApi(req, res, url) {
       const nickname = String(body.nickname || "").trim().slice(0, 16);
       if (!id || !nickname) return sendJson(res, 400, { error: "닉네임을 입력해 주세요." });
 
-      // 같은 닉네임을 가진 기존 세션(다른 clientId) 제거 - 브라우저 재접속 시 중복 방지
+      // 닉네임 중복 처리
       for (const [existingId, existingUser] of clients.entries()) {
         if (existingId !== id && existingUser.nickname === nickname) {
-          removeFromQueue(existingId);
-          practiceSessions.delete(existingId);
-          streams.delete(existingId);
-          clients.delete(existingId);
+          if (streams.has(existingId)) {
+            // 현재 접속 중인 다른 사용자 → 닉네임 사용 불가
+            return sendJson(res, 409, { error: `"${nickname}"은(는) 이미 사용 중인 닉네임입니다.` });
+          } else {
+            // 연결이 끊긴 세션 (브라우저 재접속) → 기존 세션 제거 후 허용
+            removeFromQueue(existingId);
+            practiceSessions.delete(existingId);
+            clients.delete(existingId);
+          }
         }
       }
 
