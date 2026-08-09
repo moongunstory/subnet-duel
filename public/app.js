@@ -966,6 +966,7 @@ document.querySelector("#startCustomBtn").addEventListener("click", async () => 
 
 let currentLbTab = "duel"; // "duel" | "solo"
 let currentSoloDiff = "random"; // "random" | "easy" | "medium" | "hard"
+let lbFetching = false; // 중복 요청 방지 플래그
 
 function formatLeaderboardTime(elapsedMs) {
   if (!elapsedMs || elapsedMs <= 0) return "-";
@@ -974,6 +975,9 @@ function formatLeaderboardTime(elapsedMs) {
 }
 
 async function renderLeaderboard() {
+  if (lbFetching) return; // 이미 로딩 중이면 무시
+  lbFetching = true;
+
   const lbLoading = $("#lbLoading") || els.lbLoading;
   const lbEmpty = $("#lbEmpty") || els.lbEmpty;
   const lbTbody = $("#lbTbody") || els.lbTbody;
@@ -1015,7 +1019,7 @@ async function renderLeaderboard() {
       list.forEach((item, index) => {
         const rank = index + 1;
         const topClass = rank <= 3 ? `top-${rank}` : "";
-        const isMe = item.nickname === state.nickname;
+        const isMe = item.nickname?.toLowerCase() === state.nickname?.toLowerCase();
         const tr = document.createElement("tr");
 
         tr.innerHTML = `
@@ -1058,7 +1062,7 @@ async function renderLeaderboard() {
       list.forEach((item, index) => {
         const rank = index + 1;
         const topClass = rank <= 3 ? `top-${rank}` : "";
-        const isMe = item.nickname === state.nickname;
+        const isMe = item.nickname?.toLowerCase() === state.nickname?.toLowerCase();
         const tr = document.createElement("tr");
 
         tr.innerHTML = `
@@ -1078,6 +1082,8 @@ async function renderLeaderboard() {
       lbEmpty.textContent = "랭킹 데이터를 불러오는 중 오류가 발생했습니다.";
       lbEmpty.classList.remove("hidden");
     }
+  } finally {
+    lbFetching = false;
   }
 }
 
