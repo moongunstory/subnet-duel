@@ -63,11 +63,14 @@ async function redisPipeline(commandsArray) {
 
 function calculateSoloZScore(accuracy, elapsedMs, score) {
   const normAccuracy = Math.min(100, Math.max(0, Math.round(accuracy)));
-  const normElapsedMs = Math.min(99999999, Math.max(0, Math.round(elapsedMs)));
-  const normScore = Math.min(9999, Math.max(0, Math.round(score)));
+  const normElapsedMs = Math.min(9999999, Math.max(0, Math.round(elapsedMs)));
+  const normScore = Math.min(99999, Math.max(0, Math.round(score)));
   
-  // ZScore = (Accuracy * 10^10) + ((99999999 - ElapsedMs) * 10^4) + Score
-  return (normAccuracy * 10000000000) + ((99999999 - normElapsedMs) * 10000) + normScore;
+  // ZScore = (Accuracy * 10^12) + (Score * 10^7) + (9999999 - ElapsedMs)
+  // 1st priority: Accuracy (0~100)
+  // 2nd priority: Score (0~99999)
+  // 3rd priority: ElapsedMs tiebreaker (0~9999999 ms)
+  return (normAccuracy * 1000000000000) + (normScore * 10000000) + (9999999 - normElapsedMs);
 }
 
 async function saveSoloRecord(record) {
@@ -79,16 +82,30 @@ async function saveSoloRecord(record) {
 
   if (isConfigured) {
     const key = `leaderboard:solo:${difficulty}`;
+    const allKey = `leaderboard:solo:all`;
     const hashKey = `record:solo:${difficulty}:${nickname}`;
+    const allHashKey = `record:solo:all:${nickname}`;
 
     // Check existing score
     const currentScoreStr = await redisCommand(["ZSCORE", key, nickname]);
-    const currentScore = currentScoreStr ? Number(currentScoreStr) : 0;
+    const isNewUser = (currentScoreStr === null || currentScoreStr === undefined);
+    const currentScore = isNewUser ? -1 : Number(currentScoreStr);
 
-    if (zscore > currentScore) {
+    if (isNewUser || zscore > currentScore) {
       await redisPipeline([
         ["ZADD", key, zscore, nickname],
+        ["ZADD", allKey, zscore, nickname],
         ["HSET", hashKey,
+          "nickname", nickname,
+          "difficulty", difficulty,
+          "accuracy", String(accuracy),
+          "elapsedMs", String(elapsedMs),
+          "score", String(score),
+          "correct", String(correct),
+          "total", String(total),
+          "timestamp", String(now)
+        ],
+        ["HSET", allHashKey,
           "nickname", nickname,
           "difficulty", difficulty,
           "accuracy", String(accuracy),
@@ -107,12 +124,18 @@ async function saveSoloRecord(record) {
     if (!memoryStore.soloZsets.has(difficulty)) {
       memoryStore.soloZsets.set(difficulty, new Map());
     }
+    if (!memoryStore.soloZsets.has("all")) {
+      memoryStore.soloZsets.set("all", new Map());
+    }
     const zset = memoryStore.soloZsets.get(difficulty);
-    const existingZScore = zset.get(nickname) || 0;
+    const allZset = memoryStore.soloZsets.get("all");
+    const isNewUser = !zset.has(nickname);
+    const existingZScore = isNewUser ? -1 : zset.get(nickname);
 
-    if (zscore > existingZScore) {
+    if (isNewUser || zscore > existingZScore) {
       zset.set(nickname, zscore);
-      memoryStore.soloRecords.set(`${difficulty}:${nickname}`, {
+      allZset.set(nickname, zscore);
+      const recordObj = {
         nickname,
         difficulty,
         accuracy,
@@ -121,14 +144,16 @@ async function saveSoloRecord(record) {
         correct,
         total,
         timestamp: now
-      });
+      };
+      memoryStore.soloRecords.set(`${difficulty}:${nickname}`, recordObj);
+      memoryStore.soloRecords.set(`all:${nickname}`, recordObj);
       return true;
     }
     return false;
   }
 }
 
-async function getSoloLeaderboard(difficulty = "random", limit = 50) {
+async function getSoloLeaderboard(difficulty = "all", limit = 50) {
   if (isConfigured) {
     const key = `leaderboard:solo:${difficulty}`;
     const members = await redisCommand(["ZREVRANGE", key, 0, limit - 1]);
@@ -139,7 +164,7 @@ async function getSoloLeaderboard(difficulty = "random", limit = 50) {
 
     return (results || []).map((rawHash, i) => {
       const nick = members[i];
-      if (!rawHash || rawHash.length === 0) {
+      if (!rawHash || (Array.isArray(rawHash) && rawHash.length === 0) || (typeof rawHash === "object" && Object.keys(rawHash).length === 0)) {
         return { nickname: nick, accuracy: 0, elapsedMs: 0, score: 0 };
       }
       const obj = {};
@@ -147,7 +172,7 @@ async function getSoloLeaderboard(difficulty = "random", limit = 50) {
         for (let j = 0; j < rawHash.length; j += 2) {
           obj[rawHash[j]] = rawHash[j + 1];
         }
-      } else if (typeof rawHash === "object") {
+      } else if (typeof rawHash === "object" && rawHash !== null) {
         Object.assign(obj, rawHash);
       }
       return {

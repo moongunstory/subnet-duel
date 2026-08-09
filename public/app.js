@@ -795,6 +795,7 @@ els.soundToggle.addEventListener("change", () => {
 });
 
 els.againButton.addEventListener("click", async () => {
+  const previousMode = state.currentMode;
   state.currentMatch = null;
   state.currentMode = "duel";
   state.questionStartedAt = 0;
@@ -808,6 +809,15 @@ els.againButton.addEventListener("click", async () => {
   clearAnswerInputs();
   await api("/api/cancel", { clientId: state.clientId }).catch(() => {});
   show(els.lobbyPanel);
+
+  if (previousMode === "practice") {
+    currentLbTab = "solo";
+    const tabSolo = $("#tabSolo");
+    const tabDuel = $("#tabDuel");
+    if (tabSolo) tabSolo.classList.add("active");
+    if (tabDuel) tabDuel.classList.remove("active");
+  }
+  renderLeaderboard().catch(() => {});
 });
 
 els.rematchButton.addEventListener("click", async () => {
@@ -965,7 +975,7 @@ document.querySelector("#startCustomBtn").addEventListener("click", async () => 
 // ── 랭킹 시스템 (Leaderboard) ──────────────────────────────────
 
 let currentLbTab = "duel"; // "duel" | "solo"
-let currentSoloDiff = "random"; // "random" | "easy" | "medium" | "hard"
+let currentSoloDiff = "all"; // "all" | "random" | "easy" | "medium" | "hard" | "custom"
 let lbFetching = false; // 중복 요청 방지 플래그
 
 function formatLeaderboardTime(elapsedMs) {

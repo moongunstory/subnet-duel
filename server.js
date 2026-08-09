@@ -707,6 +707,24 @@ async function handleApi(req, res, url) {
       session.correct = session.correct - (existingSub.correct ? 1 : 0) + (correct ? 1 : 0);
       // 기존 제출 교체
       Object.assign(existingSub, { answer, correct, score, elapsedMs, submittedAt: Date.now() });
+      if (session.submissions.length >= session.challenge.questions.length) {
+        const totalTime = session.submissions.reduce((sum, item) => sum + item.elapsedMs, 0);
+        const accuracy = Math.round((session.correct / session.submissions.length) * 100);
+        const mode = session.challenge.mode || "easy";
+        db.saveSoloRecord({
+          nickname: user.nickname,
+          difficulty: mode,
+          accuracy,
+          elapsedMs: totalTime,
+          score: session.score,
+          correct: session.correct,
+          total: session.submissions.length
+        }).then((newBest) => {
+          session.newRecord = newBest;
+        }).catch((err) => {
+          console.error("[Solo Record Resubmit Save Error]", err);
+        });
+      }
       broadcastLobby();
       return sendJson(res, 200, { accepted: true, match: snapshotPracticeFor(user.id, session) });
     }
