@@ -181,6 +181,7 @@ function snapshotPracticeFor(clientId, session) {
     status: finished ? "finished" : "playing",
     startedAt: session.startedAt,
     completedAt: finished ? session.finishedAt : null,
+    newRecord: finished ? (session.newRecord === true) : false,
     questions: publicQuestions(session.challenge, finished),
     me: {
       ...publicUser(user, { hideLiveResults: !finished }),
@@ -383,6 +384,7 @@ async function handleApi(req, res, url) {
     broadcastLobby();
     req.on("close", () => {
       streams.delete(clientId);
+      broadcastLobby();
     });
     return;
   }
@@ -420,7 +422,7 @@ async function handleApi(req, res, url) {
 
       // 닉네임 중복 처리
       for (const [existingId, existingUser] of clients.entries()) {
-        if (existingId !== id && existingUser.nickname === nickname) {
+        if (existingId !== id && existingUser.nickname.toLowerCase() === nickname.toLowerCase()) {
           if (streams.has(existingId)) {
             // 현재 접속 중인 다른 사용자 → 닉네임 사용 불가
             return sendJson(res, 409, { error: `"${nickname}"은(는) 이미 사용 중인 닉네임입니다.` });
@@ -751,15 +753,86 @@ async function handleApi(req, res, url) {
   }
 }
 
+// SSE 하트비트: 25초마다 모든 스트림에 keep-alive 전송 (Render 슬립 + 프록시 타임아웃 방지)
 setInterval(() => {
-  const cutoff = Date.now() - 1000 * 60 * 20;
+  for (const res of streams.values()) {
+    try {
+      res.write(": heartbeat\n\n");
+    } catch (_) { /* 이미 닫힌 스트림 무시 */ }
+  }
+}, 25_000).unref();
+
+// 주기적 정리 (30초마다)
+setInterval(async () => {
+  const now = Date.now();
+  const clientCutoff = now - 1000 * 60 * 20; // 20분 비활성 클라이언트 제거
+
+  // 1. 오래된 클라이언트 정리
   for (const [id, user] of clients.entries()) {
-    if (user.lastSeen < cutoff && !streams.has(id)) {
+    if (user.lastSeen < clientCutoff && !streams.has(id)) {
       removeFromQueue(id);
       practiceSessions.delete(id);
       clients.delete(id);
     }
   }
+
+  // 2. 오래된 매칭 정리 (2시간 이상 된 완료 매칭)
+  const matchCutoff = now - 1000 * 60 * 120;
+  for (const [matchId, match] of matches.entries()) {
+    if (match.status === "finished" && match.completedAt && match.completedAt < matchCutoff) {
+      matches.delete(matchId);
+    }
+  }
+
+  // 3. 난이도 선택 타임아웃 (90초 이상 stuck)
+  const difficultyTimeout = now - 1000 * 90;
+  for (const [matchId, match] of matches.entries()) {
+    if (match.status === "selecting_difficulty" && match.startedAt < difficultyTimeout) {
+      console.log(`[Timeout] Match ${matchId} stuck in selecting_difficulty, cancelling`);
+      match.status = "cancelled";
+      for (const playerId of match.players) {
+        const player = clients.get(playerId);
+        if (player) {
+          player.status = "online";
+          player.matchId = null;
+          removeFromQueue(playerId);
+        }
+        sendToClient(playerId, { type: "match_cancelled", reason: "난이도 선택 시간이 초과되었습니다." });
+      }
+      matches.delete(matchId);
+    }
+  }
+
+  // 4. 게임 중 이탈 타임아웃 (접속 끊긴 플레이어가 있을 때 120초 후 강제 종료)
+  const abandonTimeout = now - 1000 * 120;
+  for (const [matchId, match] of matches.entries()) {
+    if (match.status !== "playing") continue;
+    const disconnectedPlayer = match.players.find(id => !streams.has(id));
+    if (!disconnectedPlayer) continue;
+
+    const playerState = match.playerState[disconnectedPlayer];
+    const lastActivity = playerState?.finishedAt || match.startedAt;
+    if (lastActivity < abandonTimeout) {
+      console.log(`[Timeout] Match ${matchId}: player ${disconnectedPlayer} abandoned, force finishing`);
+      // 접속 끊긴 플레이어의 미제출 문제를 오답으로 채워 강제 종료
+      const questionCount = match.challenge.questions.length;
+      while (playerState.submissions.length < questionCount) {
+        playerState.submissions.push({
+          questionId: match.challenge.questions[playerState.submissions.length].id,
+          index: playerState.submissions.length,
+          answer: "",
+          correct: false,
+          score: 0,
+          elapsedMs: 0,
+          submittedAt: now
+        });
+      }
+      playerState.currentIndex = questionCount;
+      await finishMatchIfReady(match);
+      broadcastMatch(match);
+    }
+  }
+
   broadcastLobby();
 }, 30_000).unref();
 

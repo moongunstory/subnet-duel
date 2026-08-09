@@ -164,8 +164,28 @@ function connectEvents() {
         document.querySelector("#difficultyModal").classList.add("hidden");
       }, 2900);
     }
+    if (payload.type === "match_cancelled") {
+      // 난이도 선택 타임아웃 등으로 매칭 강제 취소
+      document.querySelector("#difficultyModal").classList.add("hidden");
+      document.querySelector("#rouletteContainer").classList.add("hidden");
+      document.querySelectorAll(".difficulty-btn").forEach(b => b.disabled = false);
+      els.matchButton.dataset.queue = "false";
+      els.matchButton.querySelector("span").textContent = "경쟁 매칭";
+      els.matchButton.querySelector("strong").textContent = "난이도 선택 대결";
+      els.statusPill.textContent = "온라인";
+      window.pendingMode = null;
+      alert(payload.reason || "매칭이 취소되었습니다.");
+    }
+  };
+  // SSE 연결 끊김 시 3초 후 자동 재연결
+  state.eventSource.onerror = () => {
+    state.eventSource.close();
+    setTimeout(() => {
+      if (state.clientId && state.nickname) connectEvents();
+    }, 3000);
   };
 }
+
 
 function renderLobby(payload) {
   els.onlineCount.textContent = payload.users.length;
@@ -429,11 +449,18 @@ function renderResult(match, mode = state.currentMode) {
   els.gamePanel.classList.remove("practice-mode");
   const winner = match.result?.players.find((player) => player.id === match.result.winnerId);
   if (mode === "practice") {
-    els.resultTitle.textContent = "연습 완료";
+    const isNewRecord = match.newRecord === true;
+    els.resultTitle.textContent = isNewRecord ? "🏆 신기록 달성!" : "연습 완료";
+    if (isNewRecord) {
+      els.resultTitle.style.color = "#f5c518";
+      els.resultTitle.style.animation = "pulse 0.6s ease-in-out 3";
+      setTimeout(() => { els.resultTitle.style.color = ""; els.resultTitle.style.animation = ""; }, 2000);
+    }
     els.rematchButton.classList.add("hidden");
     els.rematchStatusText.textContent = "";
   } else {
     els.resultTitle.textContent = winner?.id === state.clientId ? "승리" : `${winner?.nickname || "상대"} 승리`;
+    els.resultTitle.style.color = "";
     els.rematchButton.classList.remove("hidden");
     els.rematchButton.disabled = false;
     els.rematchStatusText.textContent = "";
@@ -448,6 +475,7 @@ function renderResult(match, mode = state.currentMode) {
   `).join("");
   renderResultReview(match);
   playSound(mode === "practice" ? "complete" : "finish");
+
 }
 
 function renderResultReview(match) {
