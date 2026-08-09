@@ -313,6 +313,7 @@ async function finishMatchIfReady(match) {
 
 async function finishPractice(user, session) {
   if (session.currentIndex < session.challenge.questions.length) return;
+  if (session.finishedAt) return; // 이미 완료된 세션 중복 처리 방지
   session.finishedAt = Date.now();
   user.status = "online";
   user.progress = 100;
@@ -324,6 +325,8 @@ async function finishPractice(user, session) {
   const accuracy = session.submissions.length ? Math.round((session.correct / session.submissions.length) * 100) : 0;
   const mode = session.challenge.mode || "easy";
 
+  console.log(`[Solo Record] ${user.nickname} | mode=${mode} | score=${session.score} | accuracy=${accuracy}% | time=${totalTime}ms`);
+
   try {
     const newBest = await db.saveSoloRecord({
       nickname: user.nickname,
@@ -334,6 +337,7 @@ async function finishPractice(user, session) {
       correct: session.correct,
       total: session.submissions.length
     });
+    console.log(`[Solo Record] 저장 결과: newBest=${newBest}`);
     session.newRecord = newBest;
   } catch (err) {
     console.error("[Solo Record Save Error]", err);
@@ -412,6 +416,17 @@ async function handleApi(req, res, url) {
       const id = String(body.clientId || "").slice(0, 80);
       const nickname = String(body.nickname || "").trim().slice(0, 16);
       if (!id || !nickname) return sendJson(res, 400, { error: "닉네임을 입력해 주세요." });
+
+      // 같은 닉네임을 가진 기존 세션(다른 clientId) 제거 - 브라우저 재접속 시 중복 방지
+      for (const [existingId, existingUser] of clients.entries()) {
+        if (existingId !== id && existingUser.nickname === nickname) {
+          removeFromQueue(existingId);
+          practiceSessions.delete(existingId);
+          streams.delete(existingId);
+          clients.delete(existingId);
+        }
+      }
+
       const user = clients.get(id) || { id };
       Object.assign(user, {
         nickname,
